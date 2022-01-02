@@ -1,0 +1,28 @@
+.sessions-container {
+  padding: 4rem;
+}
+.accordion-container {
+  margin-top: 0.5rem;
+}
+.sessions-header {
+  margin-bottom: 25px;
+  .date-input {
+    width: 150px;
+  }
+}
+.sessions-footer {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.session-commands-container {
+  max-height: 17rem;
+  overflow: scroll;
+}
+
+.empty-sessions-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,0 +1,30 @@
+.overview-container {
+  padding: 0px 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-header {
+  margin-top: 25px;
+  .date-input {
+    width: 150px;
+  }
+}
+
+.charts-row {
+  height: 450px;
+  display: flex;
+  flex-direction: row;
+}
+
+.session-chart {
+  margin-top: 50px;
+  height: 450px;
+  margin-bottom: 50px;
+}
+
+.commands-chart,
+.country-chart {
+  height: 100%;
+  flex: 1;
+}

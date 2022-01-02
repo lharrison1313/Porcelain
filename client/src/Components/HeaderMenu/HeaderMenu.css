@@ -1,0 +1,13 @@
+.MuiDrawer-paper {
+  width: 200px;
+}
+
+.drawer-close {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.css-l6f2w0-MuiButtonBase-root-MuiListItem-root:hover {
+  background-color: rgba(20, 203, 50, 0.1) !important;
+}
