@@ -1,9 +1,26 @@
 const moment = require("moment");
 const geoip = require("geoip-lite");
 
-const GET_SESSION_BY_DATE = {
-  starttime: { $gte: "", $lte: "" },
-};
+const GET_SESSION_BY_DATE = [
+  {
+    $match: {
+      starttime: { $gte: "", $lte: "" },
+    },
+  },
+  {
+    $group: {
+      _id: "$src_ip",
+      starttime: { $first: "$starttime" },
+    },
+  },
+  {
+    $project: {
+      _id: 0,
+      src_ip: "$_id",
+      starttime: "$starttime",
+    },
+  },
+];
 const AGGREGATE_INPUT_COUNTS_BY_IP_AND_DATE = [
   {
     $match: {
@@ -61,9 +78,9 @@ async function buildOverviewData(req, res) {
 
       //getting all sessions within date range
       let collection = db.collection("sessions");
-      GET_SESSION_BY_DATE.starttime.$gte = `${startDate.toISOString()}`;
-      GET_SESSION_BY_DATE.starttime.$lte = `${endDate.toISOString()}`;
-      let sessions = await collection.find(GET_SESSION_BY_DATE).toArray();
+      GET_SESSION_BY_DATE[0].$match.starttime.$gte = `${startDate.toISOString()}`;
+      GET_SESSION_BY_DATE[0].$match.starttime.$lte = `${endDate.toISOString()}`;
+      let sessions = await collection.aggregate(GET_SESSION_BY_DATE).toArray();
       //getting sum of all inputs aggregated by ip
       collection = db.collection("input");
       AGGREGATE_INPUT_COUNTS_BY_IP_AND_DATE[0].$match.timestamp.$gte = `${startDate.toISOString()}`;
@@ -99,9 +116,9 @@ async function buildIPMapData(req, res) {
 
       //getting all sessions within date range
       let collection = db.collection("sessions");
-      GET_SESSION_BY_DATE.starttime.$gte = `${startDate.toISOString()}`;
-      GET_SESSION_BY_DATE.starttime.$lte = `${endDate.toISOString()}`;
-      let sessions = await collection.find(GET_SESSION_BY_DATE).toArray();
+      GET_SESSION_BY_DATE[0].$match.starttime.$gte = `${startDate.toISOString()}`;
+      GET_SESSION_BY_DATE[0].$match.starttime.$lte = `${endDate.toISOString()}`;
+      let sessions = await collection.aggregate(GET_SESSION_BY_DATE).toArray();
 
       //building ip vs location
       let ipList = [];
