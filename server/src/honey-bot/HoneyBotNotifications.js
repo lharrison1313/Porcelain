@@ -53,7 +53,9 @@ client.connect(async () => {
     //sending message
     honeyBot.telegram.sendMessage(config.honey_bot.chat_id, message);
     client.close();
+    console.log(`*** The ${date} ${time} honeybot notification was successfully sent ***`);
   } catch (error) {
+    console.log(`!!! An error occured with the ${date} ${time} honeybot notification !!!`);
     console.log(error);
     client.close();
   }
