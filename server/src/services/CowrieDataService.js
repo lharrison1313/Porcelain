@@ -1,7 +1,12 @@
 const moment = require("moment");
 const geoip = require("geoip-lite");
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
-const GET_SESSION_BY_DATE = [
+const GET_SESSION_BY_DATE = {
+  starttime: { $gte: "", $lte: "" },
+};
+
+const GET_UNIQUE_SESSIONS_BY_DATE = [
   {
     $match: {
       starttime: { $gte: "", $lte: "" },
@@ -21,6 +26,7 @@ const GET_SESSION_BY_DATE = [
     },
   },
 ];
+
 const AGGREGATE_INPUT_COUNTS_BY_IP_AND_DATE = [
   {
     $match: {
@@ -38,6 +44,27 @@ const AGGREGATE_INPUT_COUNTS_BY_IP_AND_DATE = [
       _id: 0,
       src_ip: "$_id",
       commands: "$count",
+    },
+  },
+];
+
+const AGGREGATE_SESSION_COUNTS_BY_IP_AND_DATE = [
+  {
+    $match: {
+      starttime: { $gte: "", $lte: "" },
+    },
+  },
+  {
+    $group: {
+      _id: "$src_ip",
+      count: { $sum: 1 },
+    },
+  },
+  {
+    $project: {
+      _id: 0,
+      src_ip: "$_id",
+      sessions: "$count",
     },
   },
 ];
@@ -78,9 +105,9 @@ async function buildOverviewData(req, res) {
 
       //getting all sessions within date range
       let collection = db.collection("sessions");
-      GET_SESSION_BY_DATE[0].$match.starttime.$gte = `${startDate.toISOString()}`;
-      GET_SESSION_BY_DATE[0].$match.starttime.$lte = `${endDate.toISOString()}`;
-      let sessions = await collection.aggregate(GET_SESSION_BY_DATE).toArray();
+      GET_UNIQUE_SESSIONS_BY_DATE[0].$match.starttime.$gte = `${startDate.toISOString()}`;
+      GET_UNIQUE_SESSIONS_BY_DATE[0].$match.starttime.$lte = `${endDate.toISOString()}`;
+      let sessions = await collection.aggregate(GET_UNIQUE_SESSIONS_BY_DATE).toArray();
       //getting sum of all inputs aggregated by ip
       collection = db.collection("input");
       AGGREGATE_INPUT_COUNTS_BY_IP_AND_DATE[0].$match.timestamp.$gte = `${startDate.toISOString()}`;
@@ -116,9 +143,9 @@ async function buildIPMapData(req, res) {
 
       //getting all sessions within date range
       let collection = db.collection("sessions");
-      GET_SESSION_BY_DATE[0].$match.starttime.$gte = `${startDate.toISOString()}`;
-      GET_SESSION_BY_DATE[0].$match.starttime.$lte = `${endDate.toISOString()}`;
-      let sessions = await collection.aggregate(GET_SESSION_BY_DATE).toArray();
+      GET_UNIQUE_SESSIONS_BY_DATE[0].$match.starttime.$gte = `${startDate.toISOString()}`;
+      GET_UNIQUE_SESSIONS_BY_DATE[0].$match.starttime.$lte = `${endDate.toISOString()}`;
+      let sessions = await collection.aggregate(GET_UNIQUE_SESSIONS_BY_DATE).toArray();
 
       //building ip vs location
       let ipList = [];
@@ -171,6 +198,41 @@ async function buildSessionData(req, res) {
   } catch (error) {
     console.log(error);
     res.send();
+  }
+}
+
+async function buildHoneyBotData(startTime, endTime, db) {
+  try {
+    let collection = db.collection("sessions");
+    GET_UNIQUE_SESSIONS_BY_DATE[0].$match.starttime.$gte = `${startTime.toISOString()}`;
+    GET_UNIQUE_SESSIONS_BY_DATE[0].$match.starttime.$lte = `${endTime.toISOString()}`;
+    let uniqueSessions = await collection.aggregate(GET_UNIQUE_SESSIONS_BY_DATE).toArray();
+    let cvs = getCvS(uniqueSessions);
+
+    GET_SESSION_BY_DATE.starttime.$gte = `${startTime.toISOString()}`;
+    GET_SESSION_BY_DATE.starttime.$lte = `${endTime.toISOString()}`;
+    let totalSessions = await collection.count(GET_SESSION_BY_DATE);
+
+    AGGREGATE_SESSION_COUNTS_BY_IP_AND_DATE[0].$match.starttime.$gte = `${startTime.toISOString()}`;
+    AGGREGATE_SESSION_COUNTS_BY_IP_AND_DATE[0].$match.starttime.$lte = `${endTime.toISOString()}`;
+    let sessions_by_ip = await collection.aggregate(AGGREGATE_SESSION_COUNTS_BY_IP_AND_DATE).toArray();
+
+    cvs.sort((a, b) => {
+      return b.uniqueSessions - a.uniqueSessions;
+    });
+
+    sessions_by_ip.sort((a, b) => {
+      return b.sessions - a.sessions;
+    });
+
+    return {
+      countries: cvs.slice(0, 5),
+      unique_sessions: uniqueSessions.length,
+      total_sessions: totalSessions,
+      sessions_by_ip: sessions_by_ip.slice(0, 5),
+    };
+  } catch (error) {
+    console.log(error);
   }
 }
 
@@ -230,12 +292,13 @@ function getCvS(sessions) {
       ipList.push(session.src_ip);
     }
   });
+
   //getting locations for each unique ip
   let countryList = [];
   let countryData = {};
   ipList.forEach((ip) => {
     let location = geoip.lookup(ip);
-    let country = location === null ? "unknown" : location.country;
+    let country = location === null ? "unknown" : regionNames.of(location.country);
     if (countryList.includes(country)) {
       countryData[country].sessions++;
     } else {
@@ -251,4 +314,4 @@ function getCvS(sessions) {
   return cvs;
 }
 
-module.exports = { buildOverviewData, buildIPMapData, buildSessionData };
+module.exports = { buildOverviewData, buildIPMapData, buildSessionData, buildHoneyBotData };
